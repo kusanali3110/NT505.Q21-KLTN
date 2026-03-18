@@ -24,8 +24,8 @@ VIDEO_EXTS = (".mp4", ".avi", ".mov", ".mkv", ".m4v", ".webm")
 
 @dataclass(frozen=True)
 class WindowConfig:
-    window: int = 20
-    stride: int = 5
+    window: int = 40
+    stride: int = 10
     sample_interval_s: float = 0.05  # 20 FPS target in extractor
 
 
