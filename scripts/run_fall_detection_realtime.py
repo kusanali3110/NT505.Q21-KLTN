@@ -64,37 +64,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--threshold", type=float, default=0.8, help="Fall threshold on probability.")
     p.add_argument("--budget-ms", type=float, default=50.0, help="YOLO inference budget per frame.")
     p.add_argument("--kpt-conf", type=float, default=0.5, help="Keypoint confidence threshold.")
-    p.add_argument(
-        "--yolo-conf",
-        type=float,
-        default=0.25,
-        help="YOLO detection confidence threshold (used for tracking).",
-    )
-    p.add_argument(
-        "--yolo-iou",
-        type=float,
-        default=0.7,
-        help="YOLO NMS IoU threshold (used for tracking).",
-    )
-    p.add_argument(
-        "--imgsz",
-        type=int,
-        default=640,
-        help="YOLO inference image size (smaller -> faster, larger -> more accurate).",
-    )
-    p.add_argument(
-        "--missing",
-        type=str,
-        choices=["minus1", "reuse"],
-        default="minus1",
-        help="When a track is missing on a frame, append -1 row or reuse previous row.",
-    )
-    p.add_argument(
-        "--tracker",
-        type=str,
-        default="botsort.yaml",
-        help="Ultralytics tracker config (e.g., botsort.yaml, bytetrack.yaml).",
-    )
+    p.add_argument("--yolo-conf", type=float, default=0.25, help="YOLO detection confidence threshold (used for tracking).")
+    p.add_argument("--yolo-iou", type=float, default=0.7, help="YOLO NMS IoU threshold (used for tracking).")
+    p.add_argument("--imgsz", type=int, default=640, help="YOLO inference image size (smaller -> faster, larger -> more accurate).")
+    p.add_argument("--missing", type=str, choices=["minus1", "reuse"], default="minus1", help="When a track is missing on a frame, append -1 row or reuse previous row.")
+    p.add_argument("--tracker", type=str, default="botsort.yaml", help="Ultralytics tracker config (e.g., botsort.yaml, bytetrack.yaml).")
     p.add_argument("--show-fps", action="store_true", help="Overlay display FPS + yolo timing.")
     return p.parse_args()
 
