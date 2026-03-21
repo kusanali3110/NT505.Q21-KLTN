@@ -10,6 +10,11 @@ variable "environment" {
   default     = "dev"
 }
 
+variable "backend_bucket_name" {
+  description = "Name of the backend bucket"
+  type        = string
+}
+
 variable "vpc_name" {
   description = "Name of the VPC."
   type        = string
@@ -59,85 +64,85 @@ variable "enable_dns_hostnames" {
 }
 
 variable "eks_cluster_name" {
-  description = "Tên EKS cluster"
+  description = "Name of the EKS cluster"
   type        = string
   default     = "Lab_EKS"
 }
 
 variable "eks_cluster_version" {
-  description = "Phiên bản Kubernetes cho EKS"
+  description = "Version of the EKS cluster"
   type        = string
   default     = "1.31.0"
 }
 
 variable "endpoint_public_access" {
-  description = "Endpoint public access cho EKS cluster"
+  description = "Endpoint public access of the EKS cluster"
   type        = bool
   default     = true
 }
 
 variable "endpoint_private_access" {
-  description = "Endpoint private access cho EKS cluster"
+  description = "Endpoint private access of the EKS cluster"
   type        = bool
   default     = false
 }
 
 variable "spot_nodes_instance_types" {
-  description = "Danh sách instance types cho spot nodes"
+  description = "List of instance types of the spot nodes"
   type        = list(string)
   default     = ["t3.small"]
 }
 
 variable "spot_nodes_min_size" {
-  description = "Số lượng node tối thiểu cho spot nodes"
+  description = "Minimum number of nodes of the spot nodes"
   type        = number
   default     = 1
 }
 
 variable "spot_nodes_max_size" {
-  description = "Số lượng node tối đa cho spot nodes"
+  description = "Maximum number of nodes of the spot nodes"
   type        = number
   default     = 6
 }
 
 variable "spot_nodes_desired_size" {
-  description = "Số lượng node mong muốn cho spot nodes"
+  description = "Desired number of nodes of the spot nodes"
   type        = number
   default     = 1
 }
 
 variable "spot_nodes_disk_size" {
-  description = "Kích thước đĩa cho spot nodes (GB)"
+  description = "Disk size of the spot nodes (GB)"
   type        = number
   default     = 20
 }
 
 variable "on_demand_nodes_instance_types" {
-  description = "Danh sách instance types cho on demand nodes"
+  description = "List of instance types of the on demand nodes"
   type        = list(string)
   default     = ["t3.small"]
 }
 
 variable "on_demand_nodes_min_size" {
-  description = "Số lượng node tối thiểu cho on demand nodes"
+  description = "Minimum number of nodes of the on demand nodes"
   type        = number
   default     = 1
 }
 
 variable "on_demand_nodes_max_size" {
-  description = "Số lượng node tối đa cho on demand nodes"
+  description = "Maximum number of nodes of the on demand nodes"
   type        = number
   default     = 3
 }
 
 variable "on_demand_nodes_desired_size" {
-  description = "Số lượng node mong muốn cho on demand nodes"
+  description = "Desired number of nodes of the on demand nodes"
   type        = number
   default     = 1
 }
 
 variable "on_demand_nodes_disk_size" {
-  description = "Kích thước đĩa cho on demand nodes (GB)"
+  description = "Disk size of the on demand nodes (GB)"
   type        = number
   default     = 20
 }

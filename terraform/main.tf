@@ -20,7 +20,7 @@ module "eks" {
   source = "./modules/eks"
 
   aws_region                               = var.aws_region
-  eks_cluster_name                         = "${var.environment}-eks-lab"
+  eks_cluster_name                         = var.eks_cluster_name
   eks_cluster_version                      = var.eks_cluster_version
   endpoint_public_access                   = var.endpoint_public_access
   endpoint_private_access                  = var.endpoint_private_access

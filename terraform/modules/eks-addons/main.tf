@@ -232,7 +232,10 @@ resource "helm_release" "velero" {
   chart            = "velero"
   namespace        = "velero"
   create_namespace = true
-  depends_on       = [module.velero_irsa]
+  depends_on       = [
+    module.velero_irsa,
+    helm_release.aws_load_balancer_controller
+  ]
 
   values = [
     yamlencode({
@@ -421,7 +424,10 @@ resource "helm_release" "external_secrets_operator" {
   chart            = "external-secrets"
   namespace        = "kube-system"
 
-  depends_on       = [module.external_secrets_operator_irsa]
+  depends_on       = [
+    module.external_secrets_operator_irsa,
+    helm_release.aws_load_balancer_controller
+  ]
 
   values = [
     yamlencode({
