@@ -177,12 +177,6 @@ variable "enable_metrics_server" {
   default     = true
 }
 
-variable "enable_velero" {
-  description = "Enable Velero"
-  type        = bool
-  default     = true
-}
-
 variable "enable_cloudnative_postgresql" {
   description = "Enable CloudNative PostgreSQL"
   type        = bool
@@ -193,23 +187,6 @@ variable "enable_external_secrets_operator" {
   description = "Enable External Secrets Operator"
   type        = bool
   default     = true
-}
-
-variable "velero_backup_bucket_arn" {
-  description = "ARN of the velero backup bucket"
-  type        = string
-}
-
-variable "velero_backup_storage_location_name" {
-  description = "Name of the backup storage location for Velero"
-  type        = string
-  default     = "default"
-}
-
-variable "velero_volume_snapshot_location_name" {
-  description = "Name of the volume snapshot location for Velero"
-  type        = string
-  default     = "default"
 }
 
 variable "cnpg_backup_bucket_arn" {

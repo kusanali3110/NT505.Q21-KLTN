@@ -1,5 +1,6 @@
 aws_region  = "ap-southeast-1"
 environment = "dev"
+backend_bucket_name = "kusanali3110-tfstate"
 
 # VPC Configuration
 vpc_name             = "KLTN-VPC"
@@ -10,12 +11,12 @@ private_subnet_cidrs = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
 
 # EKS Configuration
 eks_cluster_name        = "KLTN-EKS"
-eks_cluster_version     = "1.35.0"
+eks_cluster_version     = "1.35"
 endpoint_public_access  = true
 endpoint_private_access = true
 
 # Node Groups Configuration
-spot_nodes_instance_types = ["c7i-flex.large"]
+spot_nodes_instance_types = ["t3.small","c7i-flex.large"]
 spot_nodes_min_size       = 1
 spot_nodes_max_size       = 10
 spot_nodes_desired_size   = 1
@@ -34,20 +35,14 @@ enable_aws_load_balancer_controller      = true
 enable_cert_manager                      = true
 enable_cluster_autoscaler                = true
 enable_metrics_server                    = true
-enable_velero                            = true
 enable_cloudnative_postgresql            = true
 enable_external_secrets_operator         = true
 
-# Velero Configuration
-velero_backup_bucket_arn             = "arn:aws:s3:::YOUR_VELERO_BACKUP_BUCKET_NAME"
-velero_backup_storage_location_name  = "veleros3"
-velero_volume_snapshot_location_name = "veleroebs"
-
 # CloudNative PostgreSQL Configuration
-cnpg_backup_bucket_arn = "arn:aws:s3:::YOUR_CNPG_BACKUP_BUCKET_NAME"
+cnpg_backup_bucket_arn = "arn:aws:s3:::kusanali3110-cnpg"
 
 # Tags
 tags = {
   Project     = "KLTN"
-  Environment = var.environment
+  Environment = "dev"
 }
