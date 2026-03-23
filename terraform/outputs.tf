@@ -38,39 +38,14 @@ output "eks_cluster_arn" {
   value       = module.eks.eks_cluster_arn
 }
 
-output "aws_load_balancer_controller_helm_release_version" {
-  description = "Version of the AWS Load Balancer Controller"
-  value       = module.eks_addons.aws_load_balancer_controller_helm_release_version
-}
-
-output "cert_manager_helm_release_version" {
-  description = "Version of the Cert Manager"
-  value       = module.eks_addons.cert_manager_helm_release_version
-}
-
 output "cluster_autoscaler_helm_release_version" {
   description = "Version of the Cluster Autoscaler"
   value       = module.eks_addons.cluster_autoscaler_helm_release_version
 }
 
-output "velero_backup_bucket_arn" {
-  description = "ARN of the velero backup bucket"
-  value       = module.eks_addons.velero_backup_bucket_arn
-}
-
-output "velero_helm_release_version" {
-  description = "Version of the Velero"
-  value       = module.eks_addons.velero_helm_release_version
-}
-
 output "metrics_server_helm_release_version" {
   description = "Version of the Metrics Server"
   value       = module.eks_addons.metrics_server_helm_release_version
-}
-
-output "cnpg_helm_release_version" {
-  description = "Version of the CloudNative PostgreSQL"
-  value       = module.eks_addons.cnpg_helm_release_version
 }
 
 output "cnpg_backup_bucket_arn" {
@@ -83,7 +58,7 @@ output "cnpg_role_arn" {
   value       = module.eks_addons.cnpg_role_arn
 }
 
-output "external_secrets_operator_helm_release_version" {
-  description = "Version of the External Secrets Operator"
-  value       = module.eks_addons.external_secrets_operator_helm_release_version
+output "external_secrets_operator_role_arn" {
+  description = "ARN of the External Secrets Operator IRSA role"
+  value       = module.eks_addons.external_secrets_operator_role_arn
 }

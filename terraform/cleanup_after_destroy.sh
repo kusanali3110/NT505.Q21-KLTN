@@ -122,16 +122,13 @@ BACKEND_BUCKET_RAW="${BACKEND_BUCKET:-$(read_tf_string_value "backend_bucket_nam
 if [[ -z "$BACKEND_BUCKET_RAW" ]]; then
   BACKEND_BUCKET_RAW="$(read_tf_string_value "bucket" "$BACKEND_FILE")"
 fi
-VELERO_ARN_RAW="${VELERO_BUCKET_ARN:-$(read_tf_string_value "velero_backup_bucket_arn" "$TFVARS_FILE")}"
 CNPG_ARN_RAW="${CNPG_BUCKET_ARN:-$(read_tf_string_value "cnpg_backup_bucket_arn" "$TFVARS_FILE")}"
 
 BACKEND_BUCKET_NAME="$(extract_bucket_name_from_arn_or_name "$BACKEND_BUCKET_RAW")"
-VELERO_BUCKET_NAME="$(extract_bucket_name_from_arn_or_name "$VELERO_ARN_RAW")"
 CNPG_BUCKET_NAME="$(extract_bucket_name_from_arn_or_name "$CNPG_ARN_RAW")"
 
 echo "==> Buckets to delete:"
 echo " - Backend state : $BACKEND_BUCKET_NAME"
-echo " - Velero backup : $VELERO_BUCKET_NAME"
 echo " - CNPG backup   : $CNPG_BUCKET_NAME"
 echo
 echo "IMPORTANT: Make sure you already ran 'terraform destroy'."
@@ -142,7 +139,6 @@ if [[ "$confirm" != "yes" ]]; then
   exit 0
 fi
 
-force_delete_bucket "$VELERO_BUCKET_NAME"
 force_delete_bucket "$CNPG_BUCKET_NAME"
 force_delete_bucket "$BACKEND_BUCKET_NAME"
 

@@ -60,15 +60,9 @@ module "eks_addons" {
   enable_cert_manager                 = var.enable_cert_manager
   enable_cluster_autoscaler           = var.enable_cluster_autoscaler
   enable_metrics_server               = var.enable_metrics_server
-  enable_velero                       = var.enable_velero
   enable_cloudnative_postgresql       = var.enable_cloudnative_postgresql
   enable_external_secrets_operator    = var.enable_external_secrets_operator
   
-  # Velero
-  velero_backup_bucket_arn            = var.velero_backup_bucket_arn
-  velero_backup_storage_location_name  = var.velero_backup_storage_location_name
-  velero_volume_snapshot_location_name = var.velero_volume_snapshot_location_name
-
   # CloudNative PostgreSQL
   cnpg_backup_bucket_arn             = var.cnpg_backup_bucket_arn
 

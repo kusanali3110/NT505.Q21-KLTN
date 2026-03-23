@@ -54,12 +54,6 @@ variable "enable_metrics_server" {
   default     = true
 }
 
-variable "enable_velero" {
-  description = "Enable Velero"
-  type        = bool
-  default     = true
-}
-
 # --- AWS Load Balancer Controller Config ---
 # No extra variables needed beyond region/vpc/cluster info
 
@@ -68,25 +62,6 @@ variable "enable_velero" {
 
 # --- Metrics Server Config ---
 # No extra variables needed
-
-# --- Velero Config ---
-
-variable "velero_backup_bucket_arn" {
-  description = "ARN of the Velero backup bucket"
-  type        = string
-}
-
-variable "velero_volume_snapshot_location_name" {
-  description = "Name of the volume snapshot location for Velero"
-  type        = string
-  default     = "default"
-}
-
-variable "velero_backup_storage_location_name" {
-  description = "Name of the backup storage location for Velero"
-  type        = string
-  default     = "default"
-}
 
 # --- CloudNative PostgreSQL Config ---
 

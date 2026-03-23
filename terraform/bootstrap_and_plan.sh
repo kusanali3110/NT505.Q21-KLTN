@@ -150,27 +150,21 @@ BACKEND_BUCKET_RAW="${BACKEND_BUCKET:-$(read_tf_string_value "backend_bucket_nam
 if [[ -z "$BACKEND_BUCKET_RAW" ]]; then
   BACKEND_BUCKET_RAW="$(read_tf_string_value "bucket" "$BACKEND_FILE")"
 fi
-VELERO_BUCKET_RAW="${VELERO_BUCKET_NAME:-$(read_tf_string_value "velero_backup_bucket_arn" "$TFVARS_FILE")}"
 CNPG_BUCKET_RAW="${CNPG_BUCKET_NAME:-$(read_tf_string_value "cnpg_backup_bucket_arn" "$TFVARS_FILE")}"
 BACKEND_KEY="$(read_tf_string_value "key" "$BACKEND_FILE")"
 BACKEND_KEY="${BACKEND_KEY:-environments/dev/terraform.tfstate}"
 
 prompt_if_placeholder "$BACKEND_BUCKET_RAW" "Enter backend state bucket name" BACKEND_BUCKET_NAME
-VELERO_BUCKET_DEFAULT="$(extract_bucket_name_from_arn_or_name "$VELERO_BUCKET_RAW")"
 CNPG_BUCKET_DEFAULT="$(extract_bucket_name_from_arn_or_name "$CNPG_BUCKET_RAW")"
-prompt_if_placeholder "$VELERO_BUCKET_DEFAULT" "Enter Velero S3 bucket name" VELERO_BUCKET_NAME
 prompt_if_placeholder "$CNPG_BUCKET_DEFAULT" "Enter CNPG S3 bucket name" CNPG_BUCKET_NAME
 
-VELERO_ARN="arn:aws:s3:::$VELERO_BUCKET_NAME"
 CNPG_ARN="arn:aws:s3:::$CNPG_BUCKET_NAME"
 
 echo "==> Buckets to ensure:"
 echo " - Backend state : $BACKEND_BUCKET_NAME"
-echo " - Velero backup : $VELERO_BUCKET_NAME"
 echo " - CNPG backup   : $CNPG_BUCKET_NAME"
 
 create_bucket_if_not_exists "$BACKEND_BUCKET_NAME" "$AWS_REGION"
-create_bucket_if_not_exists "$VELERO_BUCKET_NAME" "$AWS_REGION"
 create_bucket_if_not_exists "$CNPG_BUCKET_NAME" "$AWS_REGION"
 
 echo "==> Backing up terraform.tfvars..."
@@ -179,12 +173,11 @@ echo "Backup created: $TFVARS_BACKUP_FILE"
 
 echo "==> Updating terraform.tfvars with created bucket names..."
 upsert_tfvars_string "backend_bucket_name" "$BACKEND_BUCKET_NAME" "$TFVARS_FILE"
-upsert_tfvars_string "velero_backup_bucket_arn" "$VELERO_ARN" "$TFVARS_FILE"
 upsert_tfvars_string "cnpg_backup_bucket_arn" "$CNPG_ARN" "$TFVARS_FILE"
 echo "terraform.tfvars has been updated."
 
 echo "==> Running Terraform init..."
-terraform init -reconfigure \
+terraform init -upgrade -reconfigure \
   -backend-config="bucket=$BACKEND_BUCKET_NAME" \
   -backend-config="key=$BACKEND_KEY" \
   -backend-config="region=$AWS_REGION" \

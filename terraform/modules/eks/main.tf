@@ -29,11 +29,6 @@ module "eks" {
       most_recent    = true
       before_compute = true
     }
-    aws-ebs-csi-driver = {
-      most_recent                 = true
-      resolve_conflicts_on_update = "OVERWRITE"
-      service_account_role_arn    = module.ebs_csi_irsa.iam_role_arn
-    }
   }
 
   # Enable IRSA for AWS Load Balancer Controller, EBS CSI Driver and other addons
@@ -45,7 +40,6 @@ module "eks" {
     spot_nodes = {
       name           = "spot-nodes"
       instance_types = var.spot_nodes_instance_types
-      ami_type       = "AL2023_x86_64_STANDARD"
       min_size       = var.spot_nodes_min_size
       max_size       = var.spot_nodes_max_size
       desired_size   = var.spot_nodes_desired_size
@@ -59,24 +53,20 @@ module "eks" {
 
       # Enable cluster autoscaler
       tags = {
-        "k8s.io/cluster-autoscaler/enabled"    = "true"
+        "k8s.io/cluster-autoscaler/enabled"                 = "true"
         "k8s.io/cluster-autoscaler/${var.eks_cluster_name}" = "owned"
       }
     }
 
     # On Demand Nodes for critical workload
     on_demand_nodes = {
-      name = "on-demand-nodes"
-
-      ami_type       = "AL2023_x86_64_STANDARD"
+      name           = "on-demand-nodes"
       instance_types = var.on_demand_nodes_instance_types
+      min_size       = var.on_demand_nodes_min_size
+      max_size       = var.on_demand_nodes_max_size
+      desired_size   = var.on_demand_nodes_desired_size
+      disk_size      = var.on_demand_nodes_disk_size
       capacity_type  = "ON_DEMAND"
-
-      min_size     = var.on_demand_nodes_min_size
-      max_size     = var.on_demand_nodes_max_size
-      desired_size = var.on_demand_nodes_desired_size
-
-      disk_size = var.on_demand_nodes_disk_size
 
       labels = {
         "node-type"     = "on-demand"
@@ -85,33 +75,11 @@ module "eks" {
 
       # Enable cluster autoscaler 
       tags = {
-        "k8s.io/cluster-autoscaler/enabled"         = "true"
+        "k8s.io/cluster-autoscaler/enabled"                 = "true"
         "k8s.io/cluster-autoscaler/${var.eks_cluster_name}" = "owned"
       }
     }
   }
 
-  # Needed by the aws-ebs-csi-driver
-  iam_role_additional_policies = {
-    AmazonEBSCSIDriverPolicy = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
-  }
-
   tags = var.tags
-}
-
-# IRSA Role for ebs-csi-controller-sa
-module "ebs_csi_irsa" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.0"
-
-  role_name = "AmazonEKS_EBS_CSI_DriverRole"
-
-  attach_ebs_csi_policy = true
-
-  oidc_providers = {
-    main = {
-      provider_arn               = module.eks.oidc_provider_arn
-      namespace_service_accounts = ["kube-system:ebs-csi-controller-sa"]
-    }
-  }
 }
