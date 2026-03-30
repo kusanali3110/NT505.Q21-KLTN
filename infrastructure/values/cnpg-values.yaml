@@ -7,5 +7,5 @@ config:
     INHERITED_ANNOTATIONS: eks.amazonaws.com/role-arn
 
 commonAnnotations:
-  "eks.amazonaws.com/role-arn": arn:aws:iam::559947225003:role/KLTN-EKS-CNPGRole
+  "eks.amazonaws.com/role-arn": __CNPG_ROLE_ARN__
 
