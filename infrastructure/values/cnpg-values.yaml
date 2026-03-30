@@ -1,0 +1,11 @@
+serviceAccount:
+  create: true
+  name: postgres-cluster
+
+config:
+  data:
+    INHERITED_ANNOTATIONS: eks.amazonaws.com/role-arn
+
+commonAnnotations:
+  "eks.amazonaws.com/role-arn": __CNPG_ROLE_ARN__
+

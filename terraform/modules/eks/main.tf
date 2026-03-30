@@ -56,6 +56,22 @@ module "eks" {
         "k8s.io/cluster-autoscaler/enabled"                 = "true"
         "k8s.io/cluster-autoscaler/${var.eks_cluster_name}" = "owned"
       }
+
+      # Add custom userdata
+      # Installs iscsi-initiator-utils, sets initiator name, and starts iscsid
+      cloudinit_pre_nodeadm = [
+        {
+          content_type = "text/x-shellscript; charset=\"us-ascii\""
+          content      = <<-EOT
+            #!/bin/bash
+            set -ex
+            yum install -y iscsi-initiator-utils
+            echo "InitiatorName=$(/sbin/iscsi-iname)" > /etc/iscsi/initiatorname.iscsi
+            systemctl enable iscsid
+            systemctl start iscsid
+          EOT
+        }
+      ]
     }
 
     # On Demand Nodes for critical workload
@@ -78,8 +94,34 @@ module "eks" {
         "k8s.io/cluster-autoscaler/enabled"                 = "true"
         "k8s.io/cluster-autoscaler/${var.eks_cluster_name}" = "owned"
       }
+
+      # Add custom userdata
+      # Installs iscsi-initiator-utils, sets initiator name, and starts iscsid
+      cloudinit_pre_nodeadm = [
+        {
+          content_type = "text/x-shellscript; charset=\"us-ascii\""
+          content      = <<-EOT
+            #!/bin/bash
+            set -ex
+            yum install -y iscsi-initiator-utils
+            echo "InitiatorName=$(/sbin/iscsi-iname)" > /etc/iscsi/initiatorname.iscsi
+            systemctl enable iscsid
+            systemctl start iscsid
+          EOT
+        }
+      ]
     }
   }
 
+  node_security_group_additional_rules = {
+    ingress_longhorn_webhook = {
+      description                   = "Allow EKS control plane to access Longhorn webhook"
+      protocol                      = "tcp"
+      from_port                     = 9502
+      to_port                       = 9502
+      type                          = "ingress"
+      source_cluster_security_group = true
+    }
+  }
   tags = var.tags
 }
