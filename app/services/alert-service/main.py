@@ -10,7 +10,8 @@ import paho.mqtt.client as mqtt
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, create_engine, func, select, update
@@ -37,7 +38,7 @@ security = HTTPBearer()
 def decode_token(token: str, secret: str, algorithm: str) -> Dict[str, Any]:
     try:
         return jwt.decode(token, secret, algorithms=[algorithm])
-    except JWTError as exc:
+    except InvalidTokenError as exc:
         raise ValueError("Invalid token") from exc
 
 def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)]) -> dict:

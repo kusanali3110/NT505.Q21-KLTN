@@ -8,7 +8,8 @@ from typing import Any, Dict, Optional
 import paho.mqtt.client as mqtt
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine, text
@@ -178,7 +179,7 @@ def health() -> dict:
 async def event_stream(ws: WebSocket, token: str = Query(...)) -> None:
     try:
         user = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-    except JWTError:
+    except InvalidTokenError:
         await ws.close(code=4001, reason="Invalid token")
         return
 

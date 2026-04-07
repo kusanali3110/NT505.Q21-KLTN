@@ -9,7 +9,8 @@ from email.mime.multipart import MIMEMultipart
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordRequestForm
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -95,7 +96,7 @@ def create_access_token(data: Dict[str, Any], secret: str, algorithm: str, minut
 def decode_token(token: str, secret: str, algorithm: str) -> Dict[str, Any]:
     try:
         return jwt.decode(token, secret, algorithms=[algorithm])
-    except JWTError as exc:
+    except InvalidTokenError as exc:
         raise ValueError("Invalid token") from exc
 
 def send_verification_email(to_email: str, verify_link: str) -> None:

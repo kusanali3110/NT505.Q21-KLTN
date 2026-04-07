@@ -4,6 +4,6 @@ websockets
 redis
 paho-mqtt>=2.1.0
 pydantic-settings
-python-jose[cryptography]
+PyJWT
 SQLAlchemy
 psycopg2-binary
