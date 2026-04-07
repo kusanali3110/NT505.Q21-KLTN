@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+redis
+paho-mqtt>=2.1.0
+pydantic-settings
+python-jose[cryptography]
