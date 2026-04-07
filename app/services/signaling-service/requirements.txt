@@ -2,8 +2,10 @@ fastapi
 uvicorn
 websockets
 redis
-paho-mqtt>=2.1.0
+paho-mqtt
 pydantic-settings
 PyJWT
 SQLAlchemy
 psycopg2-binary
+wheel
+jaraco.context

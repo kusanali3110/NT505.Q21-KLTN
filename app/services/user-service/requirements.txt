@@ -8,3 +8,5 @@ bcrypt==3.2.2
 pydantic[email]
 pydantic-settings
 python-multipart
+wheel
+jaraco.context

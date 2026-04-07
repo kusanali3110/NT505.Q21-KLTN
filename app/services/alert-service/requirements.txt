@@ -3,6 +3,8 @@ uvicorn[standard]
 sqlalchemy
 psycopg2-binary
 redis
-paho-mqtt>=2.1.0
+paho-mqtt
 pydantic-settings
 PyJWT
+wheel
+jaraco.context
