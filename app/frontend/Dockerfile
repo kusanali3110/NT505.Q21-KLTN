@@ -18,6 +18,9 @@ RUN npm run build
 # ── Stage 2: Serve ──────────────────────────────────────────────
 FROM nginx:1.27-alpine AS production
 
+# Fix OS vulnerabilities (libssl, libpng, libexpat, libxml2)
+RUN apk upgrade --no-cache
+
 # Copy built assets
 COPY --from=builder /app/dist /usr/share/nginx/html
 
