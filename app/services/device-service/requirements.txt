@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+pydantic-settings
+redis
+paho-mqtt
+boto3
+PyJWT
+wheel
+jaraco.context
