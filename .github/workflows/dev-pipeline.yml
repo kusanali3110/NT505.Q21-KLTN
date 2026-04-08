@@ -97,7 +97,7 @@ jobs:
       - name: Resolve Docker Tags
         id: compute-tags
         run: |
-          REPO="${{ secrets.DOCKERHUB_USERNAME }}/NT505-Q21-KLTN-${{ matrix.service }}"
+          REPO="${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service }}"
           SHA_TAG="$REPO:${{ github.sha }}"
           DEV_TAG="$REPO:dev"
           echo "sha-tag=$SHA_TAG" >> $GITHUB_ENV
