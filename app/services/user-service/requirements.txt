@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+PyJWT
+passlib
+bcrypt==3.2.2
+pydantic[email]
+pydantic-settings
+python-multipart
+wheel
+jaraco.context
