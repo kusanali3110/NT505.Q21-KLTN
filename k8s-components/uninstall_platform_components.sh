@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 TF_DIR="$REPO_ROOT/terraform"
-VALUES_DIR="$REPO_ROOT/infrastructure/values"
+VALUES_DIR="$REPO_ROOT/k8s-components/values"
 
 required_commands=("helm" "kubectl" "python")
 
@@ -92,9 +92,9 @@ print("Values placeholders restored.")
 PY
 }
 
+reset_values_placeholders
+
 echo "==> Uninstalling platform components..."
 kubectl delete ns postgres longhorn-system traefik cert-manager argocd --ignore-not-found
-
-reset_values_placeholders
 
 echo "Done."
