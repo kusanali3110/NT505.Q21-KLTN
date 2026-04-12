@@ -1,0 +1,112 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres-cluster
+  namespace: postgres
+  # labels:
+  #   app: postgres-cluster
+spec:
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.2
+
+  # # HA scheduling configuration
+  # affinity:
+  #   # Ensure that the PostgreSQL cluster is deployed on nodes with the "critical" label
+  #   nodeAffinity:
+  #     requiredDuringSchedulingIgnoredDuringExecution:
+  #       nodeSelectorTerm:
+  #         matchExpressions:
+  #           - key: workload-type
+  #             operator: In
+  #             values:
+  #               - critical
+
+  #   # Ensure that the PostgreSQL cluster is deployed on different nodes
+  #   enablePodAntiAffinity: true
+  #   topologyKey: kubernetes.io/hostname
+  #   podAntiAffinityType: required
+
+  # topologySpreadConstraints:
+  #   # Ensure that the PostgreSQL cluster is deployed on different availability zones
+  #   - maxSkew: 1
+  #     topologyKey: kubernetes.io/zone
+  #     whenUnsatisfiable: DoNotSchedule
+  #     labelSelector:
+  #       matchLabels:
+  #         app: postgres-cluster
+
+  serviceAccountTemplate: # Attach an IAM role to the PostgreSQL cluster's service account
+    metadata:
+      annotations:
+        eks.amazonaws.com/role-arn: arn:aws:iam::559947225003:role/KLTN-EKS-Cluster-CNPGRole # Make sure to update the role ARN
+
+  storage:
+    size: 5Gi
+    # storageClass: gp3 # Disabled since we are using Longhorn for default storage class
+    resizeInUseVolumes: true # Enable resize if storage class supports
+
+  postgresql:
+    parameters:
+      synchronous_commit: "remote_apply" # Enable synchronous commit for better data durability. Available options: on, off, local, remote_write, remote_apply
+
+      # # Replication settings
+      # wal_level: "replica"
+      # max_wal_senders: "10"
+      # max_replication_slots: "10"
+      # hot_standby: "on"
+      # hot_standby_feedback: "on"
+
+      # # Memory and performance
+      # shared_buffers: "2GB"
+      # effective_cache_size: "6GB"
+
+  # # Resource allocation
+  # resources:
+  #   requests:
+  #     memory: "4Gi"
+  #     cpu: "2"
+  #   limits:
+  #     memory: "8Gi"
+  #     cpu: "4"
+
+  bootstrap:
+    initdb:
+      database: appdb
+      owner: postgres
+      secret:
+        name: postgres-cluster-secret
+
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: postgres-cluster-object-store
+---
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: postgres-cluster-object-store
+  namespace: postgres
+spec:
+  configuration:
+    destinationPath: s3://kusanali3110-cnpg/
+    s3Credentials:
+      inheritFromIAMRole: true
+    wal:
+      compression: gzip
+  retentionPolicy: "30d"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: postgres-cluster-scheduled-backup
+  namespace: postgres
+spec:
+  schedule: "0 0 0 * * *"
+  immediate: true
+  backupOwnerReference: self
+  cluster:
+    name: postgres-cluster
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io

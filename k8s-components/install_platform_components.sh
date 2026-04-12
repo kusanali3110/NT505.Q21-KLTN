@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 TF_DIR="$REPO_ROOT/terraform"
-VALUES_DIR="$REPO_ROOT/infrastructure/values"
+VALUES_DIR="$REPO_ROOT/k8s-components/values"
 
 required_commands=("kubectl" "helm" "terraform" "python")
 
