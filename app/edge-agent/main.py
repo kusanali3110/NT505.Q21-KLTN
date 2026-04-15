@@ -5,10 +5,14 @@ import json
 import logging
 import os
 import time
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+import subprocess
+
+import httpx
 
 import cv2
 import paho.mqtt.client as mqtt
@@ -190,11 +194,13 @@ class MQTTAgentPublisher:
 import threading
 
 class NativeVideoManager:
-    def __init__(self, cfg: AgentConfig, out_dir: Path):
+    def __init__(self, cfg: AgentConfig, out_dir: Path, on_clip_saved=None, loop=None):
         self.cfg = cfg
         self.out_dir = out_dir
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self.cap = None
+        self.on_clip_saved = on_clip_saved
+        self.loop = loop or asyncio.get_running_loop()
         
         self.ready_event = threading.Event()
         self.native_fps = 30
@@ -206,6 +212,7 @@ class NativeVideoManager:
         self.is_falling = False
         self.writer = None
         self.current_filename = None
+        self.current_fall_id = None
         
         self.latest_frame = None
         self.lock = threading.Lock()
@@ -243,6 +250,7 @@ class NativeVideoManager:
             with self.lock:
                 self.latest_frame = native_frame
                 falling_now = self.is_falling
+                fall_id_now = self.current_fall_id
                 
             if falling_now:
                 if not self.is_recording:
@@ -269,7 +277,28 @@ class NativeVideoManager:
                     if self.writer:
                         self.writer.release()
                         self.writer = None
-                        logger.info(f"Saved native quality fall clip locally at: {self.current_filename}")
+                        
+                        raw_file = str(self.current_filename)
+                        h264_file = raw_file.replace(".mp4", "_h264.mp4")
+                        try:
+                            # Use ffmpeg to transcode to H.264 for web compatibility
+                            subprocess.run([
+                                "ffmpeg", "-y", "-i", raw_file,
+                                "-c:v", "libx264", "-preset", "ultrafast",
+                                "-c:a", "aac", h264_file
+                            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            os.replace(h264_file, raw_file)
+                            logger.info(f"Transcoded clip to H.264 web standard: {self.current_filename}")
+                        except Exception as e:
+                            logger.error(f"Failed to transcode to H264: {e}")
+                            
+                        logger.info(f"Saved completed fall clip locally at: {self.current_filename}")
+                        if self.on_clip_saved and fall_id_now:
+                            # Invoke callback using async loop threadsafe
+                            asyncio.run_coroutine_threadsafe(
+                                self.on_clip_saved(fall_id_now, str(self.current_filename)),
+                                getattr(self, "loop", None)
+                            )
                 self.buffer.append(native_frame)
 
     def get_latest_frame(self):
@@ -278,9 +307,11 @@ class NativeVideoManager:
                 return self.latest_frame.copy()
         return None
         
-    def set_falling_status(self, is_falling: bool):
+    def set_falling_status(self, is_falling: bool, fall_id: str = None):
         with self.lock:
             self.is_falling = is_falling
+            if fall_id:
+                self.current_fall_id = fall_id
 
     def stop(self):
         self.running = False
@@ -311,6 +342,66 @@ async def heartbeat_loop(mqtt_publisher: MQTTAgentPublisher) -> None:
                 last_log_ts = now
         await asyncio.sleep(10)
 
+class UploadManager:
+    def __init__(self, mqtt_publisher):
+        self.mqtt = mqtt_publisher
+        self.upload_queue = asyncio.Queue()
+        self.pending_urls = {}
+        self.mqtt.add_handler(f"{self.mqtt.topic_prefix}/devices/+/upload_url", self._on_upload_url)
+        # Register a direct task handler that won't block the main thread
+        self.task = asyncio.create_task(self._process_uploads())
+        
+    def _on_upload_url(self, msg):
+        try:
+            data = json.loads(msg.payload.decode("utf-8"))
+            fall_id = data.get("fall_id")
+            if fall_id in self.pending_urls:
+                self.pending_urls[fall_id]["url"] = data.get("url")
+                self.pending_urls[fall_id]["key"] = data.get("key")
+                logger.info(f"Received Presigned URL for fall_id: {fall_id}")
+        except Exception:
+            pass
+
+    async def enqueue_upload(self, fall_id: str, filepath: str):
+        self.pending_urls[fall_id] = {"url": None, "key": None, "file": filepath}
+        self.mqtt.publish("ingest/upload/request", {
+            "device_id": self.mqtt.device_id,
+            "fall_id": fall_id
+        })
+        self.upload_queue.put_nowait(fall_id)
+        
+    async def _process_uploads(self):
+        while True:
+            fall_id = await self.upload_queue.get()
+            
+            # loop & wait up to 60 secs.
+            for _ in range(60):
+                if self.pending_urls[fall_id].get("url"):
+                    break
+                await asyncio.sleep(1)
+            
+            data = self.pending_urls.pop(fall_id, None)
+            if not data or not data["url"]:
+                logger.error(f"Failed to resolve Presigned URL for {fall_id} (Timeout)")
+                continue
+                
+            try:
+                with open(data["file"], "rb") as f:
+                    logger.info(f"Uploading {data['file']} to AWS S3...")
+                    async with httpx.AsyncClient() as client:
+                        resp = await client.put(data["url"], content=f.read(), headers={"Content-Type": "video/mp4"}, timeout=60.0)
+                        if resp.status_code == 200:
+                            logger.info(f"Upload completed for fall {fall_id}")
+                            self.mqtt.publish("ingest/alert/update", {
+                                "device_id": self.mqtt.device_id,
+                                "fall_id": fall_id,
+                                "video_key": data["key"]
+                            })
+                        else:
+                            logger.error(f"Upload failed: HTTP {resp.status_code}")
+            except Exception as e:
+                logger.error(f"Upload error: {e}")
+
 
 async def run_agent() -> None:
     identity = IdentityManager(EDGE_DIR / "identity.json")
@@ -323,13 +414,14 @@ async def run_agent() -> None:
     clip_dir = Path(cfg.fall_clip_dir)
     if not clip_dir.is_absolute():
         clip_dir = (EDGE_DIR / clip_dir).resolve()
+        
+    mqtt_publisher = MQTTAgentPublisher(cfg, identity)
+    upload_manager = UploadManager(mqtt_publisher)
     
-    video_manager = NativeVideoManager(cfg, clip_dir)
+    video_manager = NativeVideoManager(cfg, clip_dir, on_clip_saved=upload_manager.enqueue_upload)
     video_manager.ready_event.wait()
     if not video_manager.cap or not video_manager.cap.isOpened():
         raise RuntimeError("Camera failed to open.")
-        
-    mqtt_publisher = MQTTAgentPublisher(cfg, identity)
     
     logger.info("Agent strictly inferencing at 50ms intervals. Minimum 40 frames to alert.")
     hb_task = asyncio.create_task(heartbeat_loop(mqtt_publisher))
@@ -367,12 +459,14 @@ async def run_agent() -> None:
                 fall_persistence_frames = 0
             
             if fall_persistence_frames >= REQUIRED_PERSISTENCE:
-                video_manager.set_falling_status(True)
                 if (fall_persistence_frames - intervals) < REQUIRED_PERSISTENCE:
+                    current_fall_id = str(uuid.uuid4())
+                    video_manager.set_falling_status(True, current_fall_id)
                     logger.info("FALL DETECTED constantly for 40 frames (2s)! Triggering alerts...")
                     mqtt_publisher.publish(
                         "ingest/alert/fall",
                         {
+                            "fall_id": current_fall_id,
                             "device_id": mqtt_publisher.device_id,
                             "token": mqtt_publisher.device_token,
                             "confidence": confidence,
@@ -380,6 +474,8 @@ async def run_agent() -> None:
                             "ts": datetime.now(timezone.utc).isoformat(),
                         },
                     )
+                else:
+                    video_manager.set_falling_status(True)
             else:
                 video_manager.set_falling_status(False)
 
