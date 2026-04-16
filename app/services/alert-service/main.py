@@ -5,6 +5,8 @@ import urllib.parse
 from datetime import datetime
 from typing import Annotated, Any, Dict
 import asyncio
+import boto3
+from botocore.config import Config
 
 import paho.mqtt.client as mqtt
 from fastapi import FastAPI, HTTPException, Depends
@@ -32,6 +34,10 @@ class Settings(BaseSettings):
     device_service_url: str = Field(default="http://device-service:8000", validation_alias="DEVICE_SERVICE_URL")
     jwt_secret: str = Field(validation_alias="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", validation_alias="JWT_ALGORITHM")
+    aws_access_key_id: str | None = Field(default=None, validation_alias="AWS_ACCESS_KEY_ID")
+    aws_secret_access_key: str | None = Field(default=None, validation_alias="AWS_SECRET_ACCESS_KEY")
+    aws_region: str = Field(default="ap-southeast-1", validation_alias="AWS_REGION")
+    s3_bucket: str | None = Field(default=None, validation_alias="S3_BUCKET")
 
 security = HTTPBearer()
 
@@ -84,7 +90,7 @@ def persist_alert_and_publish(payload: dict[str, Any]) -> dict[str, Any] | None:
         device_id = int(payload["device_id"])
         confidence = float(payload["confidence"])
         label = str(payload.get("label", "FALL"))
-        snapshot_url = payload.get("snapshot_url")
+        fall_id = payload.get("fall_id")
     except Exception:
         return None
 
@@ -105,29 +111,55 @@ def persist_alert_and_publish(payload: dict[str, Any]) -> dict[str, Any] | None:
 
     db = SessionLocal()
     try:
-        alert = Alert(device_id=device_id, confidence=confidence, label=label, snapshot_url=snapshot_url)
+        alert = Alert(fall_id=fall_id, device_id=device_id, confidence=confidence, label=label)
         db.add(alert)
         db.commit()
         db.refresh(alert)
         out = {
             "id": alert.id,
+            "fall_id": alert.fall_id,
             "device_id": alert.device_id,
             "confidence": alert.confidence,
             "label": alert.label,
-            "occurred_at": datetime.utcnow().isoformat(),
-            "snapshot_url": alert.snapshot_url,
+            "occurred_at": alert.occurred_at.isoformat() if alert.occurred_at else datetime.utcnow().isoformat(),
+            "video_url": alert.video_url,
         }
     finally:
         db.close()
 
     publisher = getattr(app.state, "mqtt_publisher", None)
     if publisher:
+        # Precompute the redirect link for realtime socket subscribers
+        if out.get("video_url") and not out["video_url"].startswith("http"):
+            out["video_url"] = f"/api/alerts/{out['id']}/video"
+            
         publisher.publish_json(f"alerts/{device_id}", out)
     return out
 
 
+from fastapi.responses import RedirectResponse
 
-
+@app.get("/{alert_id}/video")
+def get_alert_video(alert_id: int):
+    db = SessionLocal()
+    try:
+        alert = db.execute(select(Alert).where(Alert.id == alert_id)).scalar_one_or_none()
+        if not alert or not alert.video_url:
+            raise HTTPException(status_code=404, detail="Video not found")
+            
+        if alert.video_url.startswith("http"):
+            return RedirectResponse(url=alert.video_url)
+            
+        s3_client = boto3.client('s3', region_name=settings.aws_region, 
+                                 aws_access_key_id=settings.aws_access_key_id, 
+                                 aws_secret_access_key=settings.aws_secret_access_key,
+                                 config=Config(signature_version='s3v4'))
+        url = s3_client.generate_presigned_url('get_object', 
+                                               Params={'Bucket': settings.s3_bucket, 'Key': alert.video_url}, 
+                                               ExpiresIn=3600)
+        return RedirectResponse(url=url)
+    finally:
+        db.close()
 
 async def mqtt_ingest_subscriber() -> None:
     queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
@@ -139,6 +171,8 @@ async def mqtt_ingest_subscriber() -> None:
 
     def on_connect(c: mqtt.Client, _userdata, _flags, _reason_code, _properties) -> None:
         c.subscribe(f"{topic_prefix}/ingest/alert/fall", qos=1)
+        c.subscribe(f"{topic_prefix}/ingest/upload/request", qos=1)
+        c.subscribe(f"{topic_prefix}/ingest/alert/update", qos=1)
 
     def on_message(_c: mqtt.Client, _userdata, msg: mqtt.MQTTMessage) -> None:
         try:
@@ -162,24 +196,78 @@ async def mqtt_ingest_subscriber() -> None:
             except Exception:
                 continue
             persist_alert_and_publish(data)
+            
+        elif item["topic"] == f"{topic_prefix}/ingest/upload/request":
+            data = item["data"]
+            try:
+                device_id = int(data["device_id"])
+                fall_id = data["fall_id"]
+                object_key = f"raw_videos/{fall_id}.mp4"
+                
+                if settings.s3_bucket and settings.aws_access_key_id:
+                    s3_client = boto3.client('s3', region_name=settings.aws_region, 
+                        aws_access_key_id=settings.aws_access_key_id, 
+                        aws_secret_access_key=settings.aws_secret_access_key,
+                        config=Config(signature_version='s3v4'))
+                        
+                    url = s3_client.generate_presigned_url('put_object', 
+                                                           Params={'Bucket': settings.s3_bucket, 'Key': object_key, 'ContentType': 'video/mp4'}, 
+                                                           ExpiresIn=300)
+                    
+                    publisher = getattr(app.state, "mqtt_publisher", None)
+                    if publisher:
+                        publisher.publish_json(f"devices/{device_id}/upload_url", {
+                            "fall_id": fall_id,
+                            "url": url,
+                            "key": object_key
+                        })
+            except Exception as e:
+                pass
+
+        elif item["topic"] == f"{topic_prefix}/ingest/alert/update":
+            data = item["data"]
+            try:
+                fall_id = data["fall_id"]
+                video_key = data["video_key"]
+                
+                db = SessionLocal()
+                try:
+                    alert = db.execute(select(Alert).where(Alert.fall_id == fall_id)).scalar_one_or_none()
+                    if alert:
+                        # Store raw key, we will dynamically generate presigned urls
+                        alert.video_url = video_key
+                        db.commit()
+                        
+                        publisher = getattr(app.state, "mqtt_publisher", None)
+                        if publisher:
+                            update_payload = {
+                                "id": alert.id,
+                                "fall_id": alert.fall_id,
+                                "device_id": alert.device_id,
+                                "video_url": f"/api/alerts/{alert.id}/video"
+                            }
+                            publisher.publish_json(f"alerts/{alert.device_id}/update", update_payload)
+                finally:
+                    db.close()
+            except Exception as e:
+                pass
 
 
 class Alert(Base):
     __tablename__ = "alerts"
     id = Column(Integer, primary_key=True)
+    fall_id = Column(String(36), index=True, nullable=True) # Edge generates UUID
     device_id = Column(Integer, nullable=False)
     occurred_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     confidence = Column(Float, nullable=False)
     label = Column(String(20), nullable=False, default="FALL")
-    snapshot_url = Column(String(500), nullable=True)
+    video_url = Column(String(500), nullable=True)
     acknowledged = Column(Boolean, default=False)
-
 
 class AlertBody(BaseModel):
     device_id: int
     confidence: float
     label: str = "FALL"
-    snapshot_url: str | None = None
 
 class AlertUpdate(BaseModel):
     acknowledged: bool
@@ -224,7 +312,6 @@ async def create_alert(body: AlertBody) -> dict:
         "device_id": body.device_id,
         "confidence": body.confidence,
         "label": body.label,
-        "snapshot_url": body.snapshot_url,
     }
     out = persist_alert_and_publish(payload)
     if not out:
@@ -240,11 +327,12 @@ def list_alerts(limit: int = 50) -> list[dict]:
         return [
             {
                 "id": row.id,
+                "fall_id": row.fall_id,
                 "device_id": row.device_id,
                 "confidence": row.confidence,
                 "label": row.label,
                 "occurred_at": row.occurred_at.isoformat() if row.occurred_at else None,
-                "snapshot_url": row.snapshot_url,
+                "video_url": f"/api/alerts/{row.id}/video" if row.video_url and not row.video_url.startswith('http') else row.video_url,
                 "acknowledged": row.acknowledged,
             }
             for row in rows
