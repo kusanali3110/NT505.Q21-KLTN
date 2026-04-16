@@ -19,7 +19,7 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: traefik
     cert-manager.io/cluster-issuer: letsencrypt-cloudflare
-    traefik.ingress.kubernetes.io/router.middlewares: strip-api-prefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace | default "default" }}-strip-api-prefix@kubernetescrd
 spec:
   tls:
     - hosts:
