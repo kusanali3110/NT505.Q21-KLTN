@@ -120,7 +120,8 @@ async def mqtt_subscriber():
     def on_connect(c: mqtt.Client, _userdata, _flags, _reason_code, _properties) -> None:
         prefix = settings.mqtt_topic_prefix.rstrip("/")
         c.subscribe(f"{prefix}/devices/+/status", qos=1)
-        c.subscribe(f"{prefix}/ingest/alert/+", qos=1)
+        c.subscribe(f"{prefix}/alerts/+", qos=1)
+        c.subscribe(f"{prefix}/alerts/+/update", qos=1)
 
     def on_message(_c: mqtt.Client, _userdata, msg: mqtt.MQTTMessage) -> None:
         info = _mqtt_event_type_from_topic(msg.topic, settings.mqtt_topic_prefix)

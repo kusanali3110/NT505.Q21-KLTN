@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-alert-service
+  labels:
+    app: alert-service
+spec:
+  replicas: {{ .Values.alertService.replicaCount }}
+  selector:
+    matchLabels:
+      app: alert-service
+  template:
+    metadata:
+      labels:
+        app: alert-service
+    spec:
+      containers:
+        - name: alert-service
+          image: "{{ .Values.image.repository }}/app-alert-service:{{ .Values.alertService.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: visionguard-app-secrets
+                  key: DATABASE_URL
+            - name: MQTT_HOST
+               # In K8s, resolving the service name works locally
+              value: "mqtt-broker"
+            - name: MQTT_PORT
+              value: "1883"
+            - name: MQTT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: visionguard-app-secrets
+                  key: MQTT_USERNAME
+            - name: MQTT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: visionguard-app-secrets
+                  key: MQTT_PASSWORD
+            - name: MQTT_TOPIC_PREFIX
+              value: "visionguard"
+            - name: MQTT_CLIENT_ID
+              value: "alert-service"
+            - name: DEVICE_SERVICE_URL
+              value: "http://device-service:8000"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: visionguard-app-secrets
+                  key: JWT_SECRET
+            - name: JWT_ALGORITHM
+              value: "HS256"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: visionguard-app-secrets
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: visionguard-app-secrets
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: AWS_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: visionguard-app-secrets
+                  key: AWS_REGION
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: visionguard-app-secrets
+                  key: S3_BUCKET
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-service
+  labels:
+    app: alert-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.alertService.port }}
+      targetPort: http
+      name: http
+  selector:
+    app: alert-service
