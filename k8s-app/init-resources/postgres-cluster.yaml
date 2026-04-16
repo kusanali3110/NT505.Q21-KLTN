@@ -69,12 +69,13 @@ spec:
   #     memory: "8Gi"
   #     cpu: "4"
 
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: postgres-cluster-secret
+
   bootstrap:
     initdb:
       database: appdb
-      owner: postgres
-      secret:
-        name: postgres-cluster-secret
 
   plugins:
     - name: barman-cloud.cloudnative-pg.io

@@ -1,0 +1,45 @@
+# Default values for VisionGuard App
+
+domain: kusanali3110.site
+
+# Registry and images
+image:
+  repository: docker.io/nahidacunny # Change this to your registry if pushed elsewhere
+  tag: feat-app-f6f3170
+  pullPolicy: Always
+
+# Backend Databases
+postgres:
+  databaseUrl: "postgresql://app:yourpassword@postgres-cluster-rw.postgres.svc.cluster.local:5432/appdb" # This will be overridden by ExternalSecrets
+
+# Services configuration
+userService:
+  replicaCount: 1
+  port: 8000
+deviceService:
+  replicaCount: 1
+  port: 8000
+alertService:
+  replicaCount: 1
+  port: 8000
+signalingService:
+  replicaCount: 1
+  port: 8000
+frontend:
+  replicaCount: 1
+  port: 80
+
+redis:
+  replicaCount: 1
+  port: 6379
+
+mqttBroker:
+  replicaCount: 1
+  port: 1883
+  wsPort: 9002
+
+secrets:
+  # The name of the ClusterSecretStore configured in Kubernetes
+  storeName: nt505-q21-kltn-cluster-secret-store
+  # The master key inside AWS Secrets Manager
+  awsKey: NT505.Q21-KLTN
