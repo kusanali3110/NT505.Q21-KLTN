@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8080';
+export const API_BASE = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:8080';
 const WS_BASE  = API_BASE.replace(/^http/, 'ws');
 
 export const API_URLS = {
@@ -180,6 +180,7 @@ export interface Alert {
   message: string;
   timestamp: string;
   resolved: boolean;
+  videoUrl?: string;
 }
 
 interface BackendAlert {
@@ -188,7 +189,7 @@ interface BackendAlert {
   confidence: number;
   label: string;
   occurred_at: string;
-  snapshot_url: string;
+  video_url?: string;
   acknowledged: boolean;
 }
 
@@ -201,6 +202,7 @@ function mapAlert(a: BackendAlert): Alert {
     message: `Detected ${a.label} with ${(a.confidence * 100).toFixed(0)}% confidence`,
     timestamp: a.occurred_at,
     resolved: a.acknowledged,
+    videoUrl: a.video_url ? (a.video_url.startsWith('http') ? a.video_url : `${API_BASE}${a.video_url}`) : undefined,
   };
 }
 

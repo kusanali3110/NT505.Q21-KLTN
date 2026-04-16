@@ -8,3 +8,4 @@ pydantic-settings
 PyJWT
 wheel
 jaraco.context
+boto3>=1.34.0

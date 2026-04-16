@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import {
   AlertTriangle, Activity, ShieldAlert, CheckCircle2,
-  Filter, Calendar, Search, Trash2, MoreVertical, Eye, EyeOff, CheckSquare
+  Filter, Calendar, Search, Trash2, MoreVertical, Eye, EyeOff, CheckSquare, PlayCircle, X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatDistanceToNow, format } from 'date-fns';
 import TopHeader from '../components/Layout/TopHeader';
-import { alertApi, type Alert } from '../services/api';
+import { alertApi, type Alert, API_BASE } from '../services/api';
+import { useUnifiedEvents } from '../hooks/useUnifiedEvents';
 
 const SEVERITY_CONFIG = {
   low:      { cls: 'badge-info',    icon: <Activity size={15} />,    bg: 'rgba(59,130,246,0.12)' },
@@ -22,6 +23,7 @@ export default function AlertsPage() {
   const [severityFilter, setSeverityFilter] = useState<'all'|'low'|'medium'|'high'|'critical'>('all');
   const [statusFilter,   setStatusFilter]   = useState<'all'|'unread'|'read'>('all');
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
+  const [playingVideo, setPlayingVideo] = useState<string | null>(null);
 
   const fetchAlerts = async () => {
     setLoading(true);
@@ -33,6 +35,34 @@ export default function AlertsPage() {
   };
 
   useEffect(() => { fetchAlerts(); }, []);
+
+  useUnifiedEvents((event) => {
+    if (event.type === 'alert' && event.data) {
+      const d = event.data;
+      if (d.occurred_at) {
+        // New alert incoming from MQTT
+        const newAlert: Alert = {
+          id: d.id,
+          device_id: d.device_id,
+          type: d.label?.toLowerCase() || 'unknown',
+          severity: (d.confidence > 0.8 ? 'critical' : (d.confidence > 0.5 ? 'high' : 'medium')) as Alert['severity'],
+          message: `Detected ${d.label} with ${(d.confidence * 100).toFixed(0)}% confidence`,
+          timestamp: d.occurred_at,
+          resolved: d.acknowledged || false,
+          videoUrl: d.video_url ? (d.video_url.startsWith('http') ? d.video_url : `${API_BASE}${d.video_url}`) : undefined,
+        };
+        setAlerts(prev => {
+          if (prev.some(a => a.id === d.id)) return prev;
+          return [newAlert, ...prev];
+        });
+      } else if (d.video_url) {
+        // Video upload completed for a recent alert
+        setAlerts(prev => prev.map(a => 
+          a.id === d.id ? { ...a, videoUrl: d.video_url.startsWith('http') ? d.video_url : `${API_BASE}${d.video_url}` } : a
+        ));
+      }
+    }
+  });
 
   const handleUpdateStatus = async (id: number, read: boolean) => {
     try {
@@ -171,6 +201,7 @@ export default function AlertsPage() {
                   <tr>
                     <th>#ID</th>
                     <th>Severity</th>
+                    <th>Media</th>
                     <th>Type</th>
                     <th>Camera</th>
                     <th>Message</th>
@@ -189,6 +220,19 @@ export default function AlertsPage() {
                           <span className={`badge ${cfg.cls}`} style={{ display: 'flex', alignItems: 'center', gap: 5, width: 'fit-content' }}>
                             {cfg.icon} {alert.severity}
                           </span>
+                        </td>
+                        <td>
+                          {alert.videoUrl ? (
+                            <button 
+                              className="btn btn-secondary btn-sm" 
+                              onClick={() => setPlayingVideo(alert.videoUrl!)}
+                              style={{ padding: '4px 8px', display: 'flex', gap: '6px', alignItems: 'center' }}
+                            >
+                              <PlayCircle size={14} /> View
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>-</span>
+                          )}
                         </td>
                         <td style={{ textTransform: 'capitalize' }}>{alert.type}</td>
                         <td style={{ color: 'var(--text-secondary)' }}>{alert.device_name ?? `Device #${alert.device_id}`}</td>
@@ -251,6 +295,34 @@ export default function AlertsPage() {
           )}
         </div>
       </div>
+
+      {/* Video Modal */}
+      {playingVideo && (
+        <div 
+          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+          onClick={() => setPlayingVideo(null)}
+        >
+          <div 
+            style={{ width: '80%', maxWidth: '800px', backgroundColor: '#000', borderRadius: '8px', overflow: 'hidden', position: 'relative' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}>
+              <button 
+                onClick={() => setPlayingVideo(null)} 
+                style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', padding: '6px', cursor: 'pointer', color: '#fff', display: 'flex' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <video 
+              src={playingVideo} 
+              autoPlay 
+              controls 
+              style={{ width: '100%', height: 'auto', display: 'block', maxHeight: '80vh' }}
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }

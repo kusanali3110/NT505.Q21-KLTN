@@ -1,0 +1,6 @@
+apiVersion: v2
+name: NT505.Q21-KLTN
+description: A Helm chart to deploy NT505.Q21-KLTN Microservices Stack (backend, frontend, mqtt, redis)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
