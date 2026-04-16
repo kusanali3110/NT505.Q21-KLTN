@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  User, Bell, Save, ChevronRight, LogOut
+  User, Bell, Save, ChevronRight, LogOut, AlertTriangle
 } from 'lucide-react';
 import TopHeader from '../components/Layout/TopHeader';
 import { useAuth } from '../hooks/useAuth';
@@ -13,13 +13,19 @@ const TABS: { id: SettingsTab; icon: React.ReactNode; label: string }[] = [
 ];
 
 export default function SettingsPage() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [saved, setSaved] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  // Mock form state
-  const [profile, setProfile] = useState({ username: 'admin', email: 'admin@example.com', fullName: 'System Admin' });
-  const [notifs,  setNotifs]  = useState({ email: true, motion: true, intrusion: true, fall: true, sound: false });
+  // Fallback state if user context is missing, otherwise synced with user
+  const [profile, setProfile] = useState({ 
+    username: user?.username || 'admin', 
+    email: user?.email || 'admin@example.com',
+    role: user?.role || 'user'
+  });
+  
+  const [notifs,  setNotifs]  = useState({ alert: true, sound: false });
 
   const handleSave = () => {
     setSaved(true);
@@ -51,7 +57,7 @@ export default function SettingsPage() {
               <button
                 className="settings-nav-item"
                 style={{ width: '100%', justifyContent: 'space-between', color: 'var(--accent-red)' }}
-                onClick={logout}
+                onClick={() => setShowLogoutConfirm(true)}
               >
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <LogOut size={16} /> Logout
@@ -74,17 +80,17 @@ export default function SettingsPage() {
 
                 {/* Avatar section removed. Render basic info layout */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                  <div className="form-group">
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                     <label className="form-label">Username</label>
                     <input className="form-control" value={profile.username} onChange={e => setProfile(p => ({ ...p, username: e.target.value }))} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Full Name</label>
-                    <input className="form-control" value={profile.fullName} onChange={e => setProfile(p => ({ ...p, fullName: e.target.value }))} />
+                    <label className="form-label">Email Address <span style={{fontSize: '0.75rem', opacity: 0.6}}></span></label>
+                    <input className="form-control" type="email" value={profile.email} disabled style={{opacity: 0.7, cursor: 'not-allowed'}} />
                   </div>
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label">Email Address</label>
-                    <input className="form-control" type="email" value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} />
+                  <div className="form-group">
+                    <label className="form-label">Role <span style={{fontSize: '0.75rem', opacity: 0.6}}></span></label>
+                    <input className="form-control" value={profile.role} disabled style={{opacity: 0.7, cursor: 'not-allowed', textTransform: 'capitalize'}} />
                   </div>
                 </div>
 
@@ -125,10 +131,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 {[
-                  { key: 'email' as const,     label: 'Email Notifications', desc: 'Receive alerts via email' },
-                  { key: 'motion' as const,    label: 'Motion Detected',     desc: 'Notify when motion is detected' },
-                  { key: 'intrusion' as const, label: 'Intrusion Alert',     desc: 'Notify on intrusion events' },
-                  { key: 'fall' as const,      label: 'Fall Detection',      desc: 'Notify on fall detection events' },
+                  { key: 'alert' as const,     label: 'Turn on/off alerts',  desc: 'Receive system alerts and push notifications' },
                   { key: 'sound' as const,     label: 'Sound Alerts',        desc: 'Play audio on critical alerts' },
                 ].map(item => (
                   <div key={item.key} style={{
@@ -172,6 +175,57 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Logout Confirmation Modal Overlay */}
+      {showLogoutConfirm && (
+        <div className="modal-overlay" 
+             style={{ 
+               backgroundColor: 'rgba(0, 0, 0, 0.7)',
+               backdropFilter: 'blur(4px)',
+               zIndex: 9999 
+             }} 
+             onClick={() => setShowLogoutConfirm(false)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 400, textAlign: 'center', padding: '32px' }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%', background: 'rgba(239, 68, 68, 0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px'
+            }}>
+              <AlertTriangle size={32} color="#ef4444" />
+            </div>
+            <h3 style={{ marginBottom: 12, fontSize: '1.5rem', fontWeight: 700 }}>Confirm Logout</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: 28, fontSize: '1rem', lineHeight: 1.5 }}>
+              Are you sure you want to end your session? You will be redirected to the login page.
+            </p>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <button
+                className="btn-outline"
+                onClick={() => setShowLogoutConfirm(false)}
+                style={{ 
+                  flex: 1, padding: '12px', borderRadius: '10px', 
+                  border: '1px solid var(--border-color)', background: 'var(--bg-secondary)',
+                  color: 'var(--text-main)', fontWeight: 600, fontSize: '0.95rem'
+                }}
+              >
+                No, Stay
+              </button>
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  logout();
+                }}
+                style={{ 
+                  flex: 1, padding: '12px', borderRadius: '10px', 
+                  background: '#ef4444', color: 'white', 
+                  fontWeight: 600, fontSize: '0.95rem', border: 'none'
+                }}
+              >
+                Yes, Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

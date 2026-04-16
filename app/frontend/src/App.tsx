@@ -84,14 +84,26 @@ export default function App() {
   return (
     <BrowserRouter>
       <Toaster
-        position="bottom-right"
+        position="top-center"
         toastOptions={{
-          duration: 5000,
+          duration: 4000,
           style: {
             background: 'var(--card-bg, #1a2332)',
             color: 'var(--text-primary, #e8eaf6)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)',
+            borderRadius: '12px',
+            padding: '12px 20px',
+            fontSize: '14px',
+            fontWeight: 500,
+            backdropFilter: 'blur(10px)'
           },
+          success: {
+            iconTheme: { primary: '#10b981', secondary: '#fff' },
+          },
+          error: {
+            iconTheme: { primary: '#ef4444', secondary: '#fff' },
+          }
         }}
       />
       <Routes>

@@ -130,36 +130,31 @@ export default function DashboardPage() {
         <div className="stat-cards-grid">
           <StatCard
             label="Total Cameras"
-            value={loading ? '—' : devices.length}
+            value={loading ? '...' : devices.length}
             icon={<Camera size={20} color="white" />}
-            iconBg="linear-gradient(135deg,#3b82f6,#06b6d4)"
-            change={12}
+            iconBg="rgba(255,255,255,0.2)"
             gradient="linear-gradient(135deg,#3b82f6,#06b6d4)"
           />
           <StatCard
             label="Online Cameras"
-            value={loading ? '—' : online}
+            value={loading ? '...' : online}
             icon={<Wifi size={20} color="white" />}
-            iconBg="linear-gradient(135deg,#10b981,#06b6d4)"
-            change={online > 0 ? Math.round(online / (devices.length || 1) * 100) : 0}
-            changeLabel="uptime"
+            iconBg="rgba(255,255,255,0.2)"
             gradient="linear-gradient(135deg,#10b981,#06b6d4)"
           />
           <StatCard
             label="Active Alerts Today"
-            value={loading ? '—' : activeAlerts}
+            value={loading ? '...' : activeAlerts}
             icon={<Bell size={20} color="white" />}
-            iconBg="linear-gradient(135deg,#ef4444,#f59e0b)"
-            change={-8}
+            iconBg="rgba(255,255,255,0.2)"
             gradient="linear-gradient(135deg,#ef4444,#f59e0b)"
           />
           <StatCard
             label="Resolved Alerts"
-            value={loading ? '—' : resolvedAlerts}
+            value={loading ? '...' : resolvedAlerts}
             icon={<HardDrive size={20} color="white" />}
-            iconBg="linear-gradient(135deg,#a855f7,#ec4899)"
-            change={24}
-            gradient="linear-gradient(135deg,#a855f7,#ec4899)"
+            iconBg="rgba(255,255,255,0.2)"
+            gradient="linear-gradient(135deg,#8b5cf6,#d946ef)"
           />
         </div>
 

@@ -81,19 +81,19 @@ export default function Sidebar({ user, alertCount = 0, onLogout }: SidebarProps
         </nav>
 
         {/* User footer */}
-        <div className="sidebar-footer">
-          <div className="sidebar-avatar">
+        <div className="sidebar-footer" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="sidebar-avatar" style={{ flexShrink: 0 }}>
             {user?.username?.charAt(0).toUpperCase() ?? 'U'}
           </div>
-          <div className="sidebar-user-info">
-            <p>{user?.username ?? 'Admin'}</p>
-            <span>{user?.email ?? '—'}</span>
+          <div className="sidebar-user-info" style={{ flex: 1, minWidth: 0, paddingRight: '8px' }}>
+            <p style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.username ?? 'Admin'}</p>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{user?.email ?? '—'}</span>
           </div>
           <button
             className="header-action-btn"
             onClick={() => setShowConfirm(true)}
             title="Logout"
-            style={{ marginLeft: 'auto', flexShrink: 0 }}
+            style={{ flexShrink: 0, marginLeft: 'auto', marginRight: '4px' }}
           >
             <LogOut size={16} />
           </button>
