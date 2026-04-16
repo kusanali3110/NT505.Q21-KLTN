@@ -35,7 +35,7 @@ jobs:
   global-scanner:
     name: Global Scanner
     needs: changes
-    if: needs.changes.outputs.services != '[]' # Run only if there are changes
+    if: needs.changes.outputs.services != '[]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -53,13 +53,13 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-  feature-build-scan:
-    name: CI/CD Pipeline - ${{ matrix.service }}
+  feature-scan:
+    name: Source Code Scan - ${{ matrix.service }}
     needs: changes
     if: needs.changes.outputs.services != '[]'
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false # If 1 service fails, other parallel services will not be forced to stop
+      fail-fast: false
       matrix:
         service: ${{ fromJSON(needs.changes.outputs.services) }}
 
@@ -70,26 +70,13 @@ jobs:
       - name: Resolve Environment Parameters
         id: compute
         run: |
-          # Dynamic parameter planning based on the value of matrix.service (Node.js or Python)
           if [ "${{ matrix.service }}" == "frontend" ]; then
             echo "SRC_PATH=app/frontend" >> $GITHUB_ENV
-            echo "DOCKER_CTX=app/frontend" >> $GITHUB_ENV
-            echo "DOCKER_FILE=app/frontend/Dockerfile" >> $GITHUB_ENV
             echo "TECH_STACK=node" >> $GITHUB_ENV
           else
             echo "SRC_PATH=app/services/${{ matrix.service }}" >> $GITHUB_ENV
-            echo "DOCKER_CTX=app" >> $GITHUB_ENV
-            echo "DOCKER_FILE=app/services/${{ matrix.service }}/Dockerfile" >> $GITHUB_ENV
             echo "TECH_STACK=python" >> $GITHUB_ENV
           fi
-
-          # Format Tag name: Remove / from branch name, create safe-name and append with 7-digit Git SHA (e.g., feat-frontend-f43ab1a)
-          SAFE_BRANCH=$(echo "${{ github.ref_name }}" | tr '/' '-')
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          TAG="$SAFE_BRANCH-$SHORT_SHA"
-          REPO="${{ secrets.DOCKERHUB_USERNAME }}/app-${{ matrix.service }}"
-
-          echo "tag_name=$REPO:$TAG" >> $GITHUB_ENV
 
       - name: Environment Setup (Node.js)
         uses: actions/setup-node@v3
@@ -118,40 +105,3 @@ jobs:
           fi
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-
-      - name: Initialize Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Login to DockerHub Target Space
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Assemble Docker Package (Load to local daemon)
-        uses: docker/build-push-action@v4
-        with:
-          context: ${{ env.DOCKER_CTX }}
-          file: ${{ env.DOCKER_FILE }}
-          push: false # Don't push to cloud immediately
-          load: true # Must load=true for Trivy to scan
-          tags: ${{ env.tag_name }}
-          build-args: |
-            VITE_API_GATEWAY_URL=${{ vars.VITE_API_GATEWAY_URL }}
-
-      - name: Trivy Integrity & Container OS Scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.tag_name }}
-          format: "table"
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
-
-      - name: Push Protected Tag to Registry
-        if: success()
-        run: |
-          docker push ${{ env.tag_name }}
-          echo "==== FEATURE DEPLOYMENT SUCCESS ===="
-          echo "Docker Image: ${{ env.tag_name }}"

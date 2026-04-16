@@ -1,89 +1,70 @@
 name: Dev CI/CD Pipeline
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches:
       - dev
 
 jobs:
-  scan:
-    name: Snyk & SonarQube Scanner
+  changes:
+    name: Detect Changed Components
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.filter.outputs.changes }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v3
+
+      - name: Path Filter (Detect Changed Components)
+        uses: dorny/paths-filter@v3
+        id: filter
         with:
-          fetch-depth: 0
-
-      - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@master
-        with:
-          args: >-
-            -Dsonar.organization=kusanali3110
-            -Dsonar.projectKey=kusanali3110_NT505.Q21-KLTN
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-
-      - name: Setup Node.js (For Frontend Dependencies)
-        uses: actions/setup-node@v3
-        with:
-          node-version: "22"
-
-      - name: Install Snyk CLI
-        run: npm install -g snyk
-
-      - name: Snyk SCA - Frontend
-        run: |
-          cd app/frontend
-          npm ci
-          snyk test --all-projects
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-
-      - name: Setup Python (For Backend Dependencies)
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-
-      - name: Snyk SCA - Backend
-        run: |
-          for service in user device alert signaling; do
-            echo "Scanning $service-service..."
-            cd app/services/$service-service
-            pip install -r requirements.txt
-            snyk test --file=requirements.txt
-            cd ../../../
-          done
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          filters: |
+            frontend:
+              - 'app/frontend/**'
+            user-service:
+              - 'app/services/user-service/**'
+            device-service:
+              - 'app/services/device-service/**'
+            alert-service:
+              - 'app/services/alert-service/**'
+            signaling-service:
+              - 'app/services/signaling-service/**'
 
   build-scan-push:
     name: Package Image - ${{ matrix.service }}
-    needs: scan
+    needs: changes
+    if: github.event.pull_request.merged == true && needs.changes.outputs.services != '[]'
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        include:
-          - service: user-service
-            context: app
-            dockerfile: app/services/user-service/Dockerfile
-          - service: device-service
-            context: app
-            dockerfile: app/services/device-service/Dockerfile
-          - service: alert-service
-            context: app
-            dockerfile: app/services/alert-service/Dockerfile
-          - service: signaling-service
-            context: app
-            dockerfile: app/services/signaling-service/Dockerfile
-          - service: frontend
-            context: app/frontend
-            dockerfile: app/frontend/Dockerfile
+        service: ${{ fromJSON(needs.changes.outputs.services) }}
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
+
+      - name: Resolve Environment Parameters
+        id: compute
+        run: |
+          if [ "${{ matrix.service }}" == "frontend" ]; then
+            echo "DOCKER_CTX=app/frontend" >> $GITHUB_ENV
+            echo "DOCKER_FILE=app/frontend/Dockerfile" >> $GITHUB_ENV
+          else
+            echo "DOCKER_CTX=app" >> $GITHUB_ENV
+            echo "DOCKER_FILE=app/services/${{ matrix.service }}/Dockerfile" >> $GITHUB_ENV
+          fi
+
+          SAFE_BRANCH=$(echo "${{ github.head_ref }}" | tr '/' '-')
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          TAG="$SAFE_BRANCH-$SHORT_SHA"
+          REPO="${{ secrets.DOCKERHUB_USERNAME }}/app-${{ matrix.service }}"
+
+          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
+          echo "tag_name=$REPO:$TAG" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -94,39 +75,87 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Resolve Docker Tags
-        id: compute-tags
-        run: |
-          REPO="${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service }}"
-          SHA_TAG="$REPO:${{ github.sha }}"
-          DEV_TAG="$REPO:dev"
-          echo "sha-tag=$SHA_TAG" >> $GITHUB_ENV
-          echo "dev-tag=$DEV_TAG" >> $GITHUB_ENV
-
       - name: Build Local Image
         uses: docker/build-push-action@v4
         with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
+          context: ${{ env.DOCKER_CTX }}
+          file: ${{ env.DOCKER_FILE }}
           push: false
           load: true
-          tags: ${{ env.sha-tag }}
+          tags: ${{ env.tag_name }}
           build-args: |
             VITE_API_GATEWAY_URL=${{ vars.VITE_API_GATEWAY_URL }}
 
       - name: Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.sha-tag }}
+          image-ref: ${{ env.tag_name }}
           format: "table"
           exit-code: "1"
           ignore-unfixed: true
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
 
-      - name: Deploy Images to Registry
+      - name: Push Image to Registry
         if: success()
         run: |
-          docker tag ${{ env.sha-tag }} ${{ env.dev-tag }}
-          docker push ${{ env.sha-tag }}
-          docker push ${{ env.dev-tag }}
+          docker push ${{ env.tag_name }}
+          echo "==== DEV DEPLOYMENT SUCCESS ===="
+          echo "Docker Image: ${{ env.tag_name }}"
+
+  update-values:
+    name: Update Image Tags in values.yaml
+    needs: [changes, build-scan-push]
+    if: github.event.pull_request.merged == true && needs.changes.outputs.services != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup deploy/dev Branch
+        run: |
+          git fetch origin
+          if git ls-remote --exit-code origin deploy/dev; then
+            git checkout -b deploy/dev origin/deploy/dev
+          else
+            git checkout -b deploy/dev
+          fi
+
+      - name: Compute Image Tag
+        run: |
+          SAFE_BRANCH=$(echo "${{ github.head_ref }}" | tr '/' '-')
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "IMAGE_TAG=$SAFE_BRANCH-$SHORT_SHA" >> $GITHUB_ENV
+
+      - name: Install yq
+        run: |
+          wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          chmod +x /usr/local/bin/yq
+
+      - name: Update Per-Service Image Tags
+        run: |
+          SERVICES='${{ needs.changes.outputs.services }}'
+          for service in $(echo "$SERVICES" | jq -r '.[]'); do
+            case $service in
+              frontend)          KEY=".frontend.tag" ;;
+              user-service)      KEY=".userService.tag" ;;
+              device-service)    KEY=".deviceService.tag" ;;
+              alert-service)     KEY=".alertService.tag" ;;
+              signaling-service) KEY=".signalingService.tag" ;;
+            esac
+            yq e "$KEY = \"${{ env.IMAGE_TAG }}\"" -i k8s-app/app/values.yaml
+            echo "Updated $service tag to ${{ env.IMAGE_TAG }}"
+          done
+
+      - name: Commit and Push to deploy/dev
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s-app/app/values.yaml
+          git commit -m "ci: update image tags for ${{ github.head_ref }} [${{ env.IMAGE_TAG }}]"
+          git push origin deploy/dev
