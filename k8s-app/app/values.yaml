@@ -5,7 +5,6 @@ domain: kusanali3110.site
 # Registry and images
 image:
   repository: docker.io/nahidacunny # Change this to your registry if pushed elsewhere
-  tag: feat-app-f6f3170
   pullPolicy: Always
 
 # Backend Databases
@@ -14,18 +13,23 @@ postgres:
 
 # Services configuration
 userService:
+  tag: feat-app-f6f3170
   replicaCount: 1
   port: 8000
 deviceService:
+  tag: feat-app-f6f3170
   replicaCount: 1
   port: 8000
 alertService:
+  tag: feat-app-f6f3170
   replicaCount: 1
   port: 8000
 signalingService:
+  tag: feat-app-f6f3170
   replicaCount: 1
   port: 8000
 frontend:
+  tag: feat-app-f6f3170
   replicaCount: 1
   port: 80
 

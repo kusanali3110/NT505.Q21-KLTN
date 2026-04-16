@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: alert-service
-          image: "{{ .Values.image.repository }}/app-alert-service:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}/app-alert-service:{{ .Values.alertService.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: 8000

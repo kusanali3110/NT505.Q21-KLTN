@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: device-service
-          image: "{{ .Values.image.repository }}/app-device-service:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}/app-device-service:{{ .Values.deviceService.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: 8000

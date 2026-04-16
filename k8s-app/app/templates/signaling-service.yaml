@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: signaling-service
-          image: "{{ .Values.image.repository }}/app-signaling-service:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}/app-signaling-service:{{ .Values.signalingService.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: 8000
