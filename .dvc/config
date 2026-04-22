@@ -1,2 +1,4 @@
+[core]
+    remote = origin
 ['remote "origin"']
-    url = https://dagshub.com/kusanali3110/NT505.Q21-KLTN.dvc
+    url = s3://kusanali3110-video-data/dvc-cache
