@@ -3,11 +3,10 @@
 app/.env
 .env
 *.env.local
-/dataset/
 /models/
 __pycache__/
 *.egg-info/
 Báo cáo*
 DeCuong*
-/dataset
 Demo*
+/dataset
