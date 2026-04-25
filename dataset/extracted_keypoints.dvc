@@ -1,6 +1,6 @@
 outs:
-- md5: 242eb22ea76b87b13bb941ad20022444.dir
-  size: 32112495
-  nfiles: 170
+- md5: e0ce88d37e7be9e54a5d7b0063f80264.dir
+  size: 23171562
+  nfiles: 12
   hash: md5
   path: extracted_keypoints
